@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <iostream>
+#include <cstdlib>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <tf/tf.h>
@@ -147,7 +148,7 @@ void callbackRGB(const sensor_msgs::ImageConstPtr &msg)
         cv_bridge::CvImagePtr cv_ptr;
         try
         {
-            cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding);
+            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
         }
         catch (cv_bridge::Exception &e)
         {
@@ -308,6 +309,9 @@ int main(int argc, char **argv)
     }
 
     cv::destroyWindow(WIN_TITLE);
+
+    ROS_INFO("detecting...");
+    system("python /home/robot/catkin_ws/src/buaa_demos/src/detect.py");
 
     // ros::waitForShutdown();
     // ros::shutdown();
