@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <iostream>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <tf/tf.h>
@@ -43,6 +44,7 @@ static double waypoints[CNT_WAYPOINTS][DIM_WAYPOINT] = {
 static const std::string WIN_TITLE = "nav";
 static const char rgbFlag[] = "rgb";
 static const char depthFlag[] = "depth";
+static const char poseFlag[] = "pose";
 static bool isReadyRGB = false;
 static bool isReadyDepth = false;
 static bool isDoneRGB = false;
@@ -195,6 +197,37 @@ void callbackDepth(const sensor_msgs::ImageConstPtr &msg)
     }
 }
 
+bool getTFTransform(tf::StampedTransform& transform, std::string parent, std::string child){
+    tf::TransformListener listener;
+    try{
+        bool res = listener.waitForTransform(parent, child, ros::Time(0), ros::Duration(3.0));
+        if(!res){
+            return res;
+        }
+        listener.lookupTransform(parent, child, ros::Time(0), transform);
+        ROS_INFO("Quaternion(x=%f, y=%f, z=%f, w=%f)", transform.getRotation()[0], transform.getRotation()[1], 
+            transform.getRotation()[2], transform.getRotation()[3]);
+        ROS_INFO("Vector(x=%f, y=%f, z=%f)", transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
+        return true;
+    }
+    catch (tf::TransformException &ex){
+        ROS_ERROR("%s", ex.what());
+    }
+    return false;
+}
+
+void saveTFTransform(){
+    tf::StampedTransform map2footTrans;
+    getTFTransform(map2footTrans, "map", "base_footprint");
+    sprintf(filename, "%s/%s_%d.txt", IMAGE_PATH, poseFlag, nWPIndex);
+    std::ofstream fout(filename, std::ios::out);
+    fout << map2footTrans.getOrigin().x() << " " << map2footTrans.getOrigin().y() << " " << map2footTrans.getOrigin().z();
+    for(int i = 0; i < 4; ++i){
+        fout << " " << map2footTrans.getRotation()[i];
+    }
+    fout.close();
+}
+
 void captureRGBAndDepth()
 {
     // ROS_INFO("captureRGBAndDepth");
@@ -216,7 +249,11 @@ void captureRGBAndDepth()
         ros::spinOnce();
     }
     isDoneDepth = false;
+
+    saveTFTransform();
 }
+
+
 
 int main(int argc, char **argv)
 {
