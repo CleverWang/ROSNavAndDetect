@@ -32,14 +32,14 @@ int nWPIndex = 0;
 #define CNT_WAYPOINTS 3
 #define DIM_WAYPOINT 6
 #define IMAGE_PATH "/home/robot/CapturedImages"
-#define RGB_SLEEP_HZ 1
-#define DEPTH_SLEEP_HZ 0.1
+#define RGB_SLEEP_DURATION 1
+#define DEPTH_SLEEP_DURATION 10
 
 static double waypoints[CNT_WAYPOINTS][DIM_WAYPOINT] = {
     // x,y,z,r,p,y
     0, 0, 0, 0, 0, 0,
-    0, 1.07, 0, 0, 0, 0,
-    0.05, 2.03, 0, 0, 0, 0,
+    0.0, 1.0, 0, 0, 0, 0,
+    0.0, 2.0, 0, 0, 0, 0,
 };
 
 static const std::string WIN_TITLE = "nav";
@@ -58,7 +58,7 @@ void Init_WayPoints()
     tf::Quaternion q;
 
     newWayPoint.target_pose.header.frame_id = "map";
-
+    //for (int i = 0; i < 2; i++)
     for (int i = 0; i < CNT_WAYPOINTS; i++)
     {
         newWayPoint.target_pose.pose.position.x = waypoints[i][0];
@@ -148,7 +148,7 @@ void callbackRGB(const sensor_msgs::ImageConstPtr &msg)
         cv_bridge::CvImagePtr cv_ptr;
         try
         {
-            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+            cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding);
         }
         catch (cv_bridge::Exception &e)
         {
@@ -159,10 +159,10 @@ void callbackRGB(const sensor_msgs::ImageConstPtr &msg)
         sprintf(filename, "%s/%s_%d.jpg", IMAGE_PATH, rgbFlag, nWPIndex);
         //if (access(filename, R_OK) != 0)
         //{
-            //imshow(WIN_TITLE, cv_ptr->image);
-            //cvWaitKey(2000);
-            imwrite(filename, cv_ptr->image);
-            ROS_WARN("captured %s", filename);
+        //imshow(WIN_TITLE, cv_ptr->image);
+        //cvWaitKey(2000);
+        imwrite(filename, cv_ptr->image);
+        ROS_WARN("captured %s", filename);
         //}
 
         isDoneRGB = true;
@@ -189,8 +189,8 @@ void callbackDepth(const sensor_msgs::ImageConstPtr &msg)
         sprintf(filename, "%s/%s_%d.jpg", IMAGE_PATH, depthFlag, nWPIndex);
         //if (access(filename, R_OK) != 0)
         //{
-            imwrite(filename, cv_ptr->image);
-            ROS_WARN("captured %s", filename);
+        imwrite(filename, cv_ptr->image);
+        ROS_WARN("captured %s", filename);
         //}
 
         isDoneDepth = true;
@@ -198,32 +198,38 @@ void callbackDepth(const sensor_msgs::ImageConstPtr &msg)
     }
 }
 
-bool getTFTransform(tf::StampedTransform& transform, std::string parent, std::string child){
+bool getTFTransform(tf::StampedTransform &transform, std::string parent, std::string child)
+{
     tf::TransformListener listener;
-    try{
+    try
+    {
         bool res = listener.waitForTransform(parent, child, ros::Time(0), ros::Duration(3.0));
-        if(!res){
+        if (!res)
+        {
             return res;
         }
         listener.lookupTransform(parent, child, ros::Time(0), transform);
-        ROS_INFO("Quaternion(x=%f, y=%f, z=%f, w=%f)", transform.getRotation()[0], transform.getRotation()[1], 
-            transform.getRotation()[2], transform.getRotation()[3]);
+        ROS_INFO("Quaternion(x=%f, y=%f, z=%f, w=%f)", transform.getRotation()[0], transform.getRotation()[1],
+                 transform.getRotation()[2], transform.getRotation()[3]);
         ROS_INFO("Vector(x=%f, y=%f, z=%f)", transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
         return true;
     }
-    catch (tf::TransformException &ex){
+    catch (tf::TransformException &ex)
+    {
         ROS_ERROR("%s", ex.what());
     }
     return false;
 }
 
-void saveTFTransform(){
+void saveTFTransform()
+{
     tf::StampedTransform map2footTrans;
     getTFTransform(map2footTrans, "map", "base_footprint");
     sprintf(filename, "%s/%s_%d.txt", IMAGE_PATH, poseFlag, nWPIndex);
     std::ofstream fout(filename, std::ios::out);
     fout << map2footTrans.getOrigin().x() << " " << map2footTrans.getOrigin().y() << " " << map2footTrans.getOrigin().z();
-    for(int i = 0; i < 4; ++i){
+    for (int i = 0; i < 4; ++i)
+    {
         fout << " " << map2footTrans.getRotation()[i];
     }
     fout.close();
@@ -233,8 +239,7 @@ void captureRGBAndDepth()
 {
     // ROS_INFO("captureRGBAndDepth");
 
-    ros::Rate rate_rgb(RGB_SLEEP_HZ);
-    rate_rgb.sleep();
+    // ros::Duration(RGB_SLEEP_DURATION).sleep();
     isReadyRGB = true;
     while (isDoneRGB == false)
     {
@@ -242,8 +247,7 @@ void captureRGBAndDepth()
     }
     isDoneRGB = false;
 
-    ros::Rate rate_depth(DEPTH_SLEEP_HZ);
-    rate_depth.sleep();
+    // ros::Duration(DEPTH_SLEEP_DURATION).sleep();
     isReadyDepth = true;
     while (isDoneDepth == false)
     {
@@ -253,8 +257,6 @@ void captureRGBAndDepth()
 
     saveTFTransform();
 }
-
-
 
 int main(int argc, char **argv)
 {
@@ -310,8 +312,8 @@ int main(int argc, char **argv)
 
     cv::destroyWindow(WIN_TITLE);
 
-    ROS_INFO("detecting...");
-    system("python /home/robot/catkin_ws/src/buaa_demos/src/detect.py");
+    // ROS_INFO("detecting...");
+    // system("python /home/robot/catkin_ws/src/buaa_demos/src/detect.py");
 
     // ros::waitForShutdown();
     // ros::shutdown();
